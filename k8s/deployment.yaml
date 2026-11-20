@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-web
+  template:
+    metadata:
+      labels:
+        app: flask-web
+    spec:
+      containers:
+      - name: flask-container
+        # TODO: replace with your Docker Hub username
+        image: <YOUR-DOCKERHUB-USERNAME>/flask-app:v1
+        ports:
+        - containerPort: 5000
+        # Probes: Kubernetes only sends traffic to Ready pods and restarts
+        # containers that stop responding (self-healing beyond pod deletion).
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10

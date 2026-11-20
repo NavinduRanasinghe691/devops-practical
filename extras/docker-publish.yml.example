@@ -1,0 +1,45 @@
+# OPTIONAL EXTENSION - closes the CI/CD loop for the Kubernetes track.
+#
+# To enable:
+#   1. GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret:
+#        DOCKERHUB_USERNAME   your Docker Hub username
+#        DOCKERHUB_TOKEN      a Docker Hub access token (Account Settings -> Personal access tokens)
+#   2. Copy this file to .github/workflows/docker-publish.yml
+#   3. Push to main. Every green build publishes <you>/flask-app:<git-sha> and :latest
+#
+# Never use your Docker Hub password here, and never commit the token.
+name: Publish Docker Image
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    # Only publish when the CI Pipeline succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/flask-app
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Checkout the commit that passed CI
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Log in to Docker Hub
+        run: echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
+      - name: Build and push
+        run: |
+          docker build -t "$IMAGE:$SHA" -t "$IMAGE:latest" .
+          docker push "$IMAGE:$SHA"
+          docker push "$IMAGE:latest"
